@@ -15,18 +15,7 @@
   ],
   "functions": {
     "api/index.py": {
-      "includeFiles": [
-        "macronizer.py",
-        "lemmas.py",
-        "postags.py",
-        "macronized_endings.py",
-        "macronizer.db",
-        "macrons.txt",
-        "morpheus/**",
-        "rftagger-ldt.model",
-        "bin/rftagger/**",
-        "requirements.txt"
-      ]
+      "includeFiles": "**"
     }
   }
 }
