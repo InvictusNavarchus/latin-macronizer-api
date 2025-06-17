@@ -30,7 +30,7 @@ except Exception as e:
     raise RuntimeError(f"Failed to initialize Macronizer: {e}")
 
 class MacronizeRequest(BaseModel):
-    text_to_macronize: str = Field(..., example="Arma virumque cano, Troiae qui primus ab oris.")
+    text_to_macronize: str = Field(..., json_schema_extra={"example": "Arma virumque cano, Troiae qui primus ab oris."})
     domacronize: Optional[bool] = True
     alsomaius: Optional[bool] = False
     scan_option_index: Optional[int] = Field(0, ge=0) # Index for SCANSIONS list
