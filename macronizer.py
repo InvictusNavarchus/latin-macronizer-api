@@ -27,7 +27,7 @@ import postags
 
 USE_DB = True
 DB_NAME = 'macronizer.db'
-RFTAGGER_DIR = '/usr/local/bin'
+RFTAGGER_DIR = os.path.join(os.path.dirname(__file__), 'bin', 'rftagger')
 MORPHEUS_DIR = os.path.join(os.path.dirname(__file__), 'morpheus')
 MACRONS_FILE = os.path.join(os.path.dirname(__file__), 'macrons.txt')
 
@@ -147,7 +147,7 @@ class Wordlist:
             for word in words:
                 morphinpfile.write(word.strip().lower() + '\n')
                 morphinpfile.write(word.strip().capitalize() + '\n')
-        morpheus_command = "MORPHLIB=%s/stemlib %s/bin/cruncher -L < %s > %s 2> /dev/null" % \
+        morpheus_command = "MORPHLIB=%s/stemlib %s/cruncher -L < %s > %s 2> /dev/null" % \
                                (MORPHEUS_DIR, MORPHEUS_DIR, morphinpfname, crunchedfname)
         exitcode = os.system(morpheus_command)
         if exitcode != 0:
@@ -808,7 +808,6 @@ class Tokenization:
     # enddef
 # endclass
 
-
 class Macronizer:
 
     dactylichexameter = {
@@ -1032,6 +1031,16 @@ class Macronizer:
     # enddef
 # endclass
 
+SCANSIONS = [
+    ("No scanning", []),
+    ("Dactylic Hexameter", [Macronizer.dactylichexameter]),
+    ("Dactylic Pentameter", [Macronizer.dactylicpentameter]),
+    ("Elegiac Couplet (Hexameter then Pentameter)", [Macronizer.dactylichexameter, Macronizer.dactylicpentameter]),
+    ("Hendecasyllable", [Macronizer.hendecasyllable]),
+    ("Iambic Trimeter", [Macronizer.iambictrimeter]),
+    ("Iambic Dimeter", [Macronizer.iambicdimeter]),
+    # Users could define more complex sequences if needed, e.g., a whole poem's structure.
+]
 
 def evaluate(goldstandard, macronizedtext):
     vowelcount = 0
