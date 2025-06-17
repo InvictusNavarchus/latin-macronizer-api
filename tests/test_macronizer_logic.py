@@ -1,3 +1,22 @@
+"""
+Latin Macronizer Core Logic Test Suite
+=====================================
+
+This test suite validates the core macronization logic of the Latin Macronizer.
+Tests cover:
+- Accurate macronization of common Latin phrases
+- Proper handling of punctuation and capitalization
+- Integration with external tools (RFTagger for POS tagging, Morpheus for morphological analysis)
+- Database-driven macron lookup functionality
+
+All external dependencies (RFTagger, Morpheus, file I/O) are mocked to ensure:
+- Fast test execution
+- Reliable test results independent of system configuration
+- Focused testing on core macronization algorithms
+
+Test cases include famous Latin phrases to verify expected macronization behavior.
+"""
+
 import pytest
 from unittest.mock import patch, mock_open
 
@@ -100,6 +119,9 @@ RFTAGGER_MOCKS_PER_CASE = {
 @patch('macronizer.mkstemp')
 @patch('macronizer.open', new_callable=mock_open) # Mock all file operations
 def test_macronizer_logic_with_mocked_binaries(mock_file_open, mock_mkstemp, mock_os_system, mock_os_remove, sample_input, expected_output):
+    """Test core macronizer logic with mocked external dependencies (RFTagger, Morpheus)"""
+    print(f"🧪 Testing macronizer core logic: '{sample_input}' → '{expected_output}'")
+    
     # Configure os.system to always return 0 (success)
     mock_os_system.return_value = 0
     # Configure os.remove to do nothing (as files aren't really created)
@@ -144,10 +166,12 @@ def test_macronizer_logic_with_mocked_binaries(mock_file_open, mock_mkstemp, moc
     # Ensure that the database is used. If macronizer.db is missing, it might try to use macrons.txt
     # or fail. The test assumes macronizer.db is present and valid as per setup.
     # We are mocking os.system, so --initialize won't run if called.
+    print("🔧 Setting up mocked macronizer instance with external binary dependencies")
     
     macronizer_instance = Macronizer()
     
     # Call the macronize method with default options relevant to basic macronization
+    print("⚙️  Running macronization with standard options")
     actual_output = macronizer_instance.macronize(
         text=sample_input,
         domacronize=True,
@@ -158,3 +182,4 @@ def test_macronizer_logic_with_mocked_binaries(mock_file_open, mock_mkstemp, moc
     )
     
     assert actual_output == expected_output
+    print(f"✅ Macronization test passed - Output matches expected result")

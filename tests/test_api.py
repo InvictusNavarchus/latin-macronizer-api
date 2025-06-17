@@ -1,3 +1,18 @@
+"""
+Latin Macronizer API Test Suite
+==============================
+
+This test suite validates the FastAPI endpoints for the Latin Macronizer service.
+Tests cover:
+- Basic macronization with default options
+- Custom configuration options (alsomaius, performitoj, performutov, scan options)
+- Input validation and error handling
+- Exception handling from the underlying macronizer engine
+
+All tests use mocked macronizer instances to ensure fast, isolated testing
+without dependencies on external binaries (RFTagger, Morpheus) or database files.
+"""
+
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
@@ -34,6 +49,9 @@ def mock_macronizer_instance():
         yield mock_macronizer
 
 def test_macronize_success_default_options(client, mock_macronizer_instance):
+    """Test API endpoint with default macronization options"""
+    print("🧪 Testing API with default options (domacronize=True)")
+    
     response = client.post("/api/macronize", json={"text_to_macronize": "test text"})
 
     assert response.status_code == 200
@@ -48,8 +66,12 @@ def test_macronize_success_default_options(client, mock_macronizer_instance):
     mock_macronizer_instance.gettext.assert_called_once_with(
         domacronize=True, alsomaius=False, performutov=False, performitoj=False, markambigs=False
     )
+    print("✅ Default options test passed - API correctly processes text with standard settings")
 
 def test_macronize_success_custom_options(client, mock_macronizer_instance):
+    """Test API endpoint with custom macronization options"""
+    print("🧪 Testing API with custom options (alsomaius=True, performitoj=True, etc.)")
+    
     # Assuming SCANSIONS has at least 2 options for this test, so index 1 is valid
     valid_scan_index = 0
     if len(SCANSIONS) > 1:
@@ -85,8 +107,12 @@ def test_macronize_success_custom_options(client, mock_macronizer_instance):
     mock_macronizer_instance.gettext.assert_called_once_with(
         domacronize=False, alsomaius=True, performutov=True, performitoj=True, markambigs=False
     )
+    print("✅ Custom options test passed - API correctly handles all configuration parameters")
 
 def test_macronize_invalid_scan_option_index(client, mock_macronizer_instance):
+    """Test API endpoint with invalid scan option index"""
+    print("🧪 Testing API error handling for invalid scan_option_index")
+    
     invalid_scan_index = len(SCANSIONS) # This index will always be out of bounds
     response = client.post("/api/macronize", json={
         "text_to_macronize": "test text",
@@ -97,8 +123,12 @@ def test_macronize_invalid_scan_option_index(client, mock_macronizer_instance):
     json_response = response.json()
     assert "Invalid scan_option_index" in json_response["detail"]
     mock_macronizer_instance.gettext.assert_not_called() # Should not reach gettext
+    print("✅ Invalid scan index test passed - API correctly validates input parameters")
 
 def test_macronize_macronizer_exception(client, mock_macronizer_instance):
+    """Test API endpoint error handling when macronizer throws exception"""
+    print("🧪 Testing API error handling for internal macronizer exceptions")
+    
     mock_macronizer_instance.gettext.side_effect = Exception("Internal Macronizer Error")
 
     response = client.post("/api/macronize", json={"text_to_macronize": "error text"})
@@ -113,3 +143,4 @@ def test_macronize_macronizer_exception(client, mock_macronizer_instance):
     # Scan might or might not be called depending on default scan_option_index,
     # but gettext is the one we are making fail.
     mock_macronizer_instance.gettext.assert_called_once()
+    print("✅ Exception handling test passed - API correctly handles and reports internal errors")
