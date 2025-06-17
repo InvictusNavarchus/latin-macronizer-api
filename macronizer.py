@@ -101,7 +101,7 @@ class Wordlist:
     def loadwords(self, words):  # Expects a set of lowercase words
         """
         Loads words from the database or attempts to parse them with Morpheus.
-        If a word cannot be processed, it is treated as unknown but processing continues.
+        If Morpheus is not available, unknown words are completely skipped.
         """
         unseenwords = set()
         for word in words:
@@ -110,10 +110,10 @@ class Wordlist:
             if not self.loadwordfromdb(word):  # Could not find word in database
                 unseenwords.add(word)
         if len(unseenwords) > 0:
-            self.crunchwords(unseenwords)  # Try to parse unseen words with Morpheus, and add result to the database
+            self.crunchwords(unseenwords)  # Try to parse unseen words with Morpheus
+            # After crunchwords, try to load any words that were successfully processed
             for word in unseenwords:
-                # Load the word from database - if it's still not there, it will be treated as unknown
-                self.loadwordfromdb(word)
+                self.loadwordfromdb(word)  # This will succeed for known words, silently fail for unknown ones
     # enddef
 
     def loadwordfromdb(self, word):
@@ -159,14 +159,9 @@ class Wordlist:
                                (MORPHEUS_DIR, MORPHEUS_DIR, morphinpfname, crunchedfname)
         exitcode = os.system(morpheus_command)
         if exitcode != 0:
-            # Morpheus execution failed - treat all words as unknown
+            # Morpheus execution failed - skip processing these words entirely
             os.remove(morphinpfname)
             os.remove(crunchedfname)
-            # Add all words as unknown to the database
-            for word in words:
-                word_lower = word.strip().lower()
-                self.dbcursor.execute("INSERT OR IGNORE INTO morpheus (wordform) VALUES (?)", (word_lower,))
-            self.dbconn.commit()
             return
         os.remove(morphinpfname)
         with open(crunchedfname, 'r', encoding='utf-8') as crunchedfile:
