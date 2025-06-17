@@ -731,7 +731,7 @@ def tag_distance(tag1, tag2):
     """To help select the best alternative, define a measure to compare how similar tags are."""
     if not (len(tag1) == len(tag2) == 9 or len(tag1) == len(tag2) == 12):
         print("Warning: Strange or mismatching tags!", tag1, tag2)
-        exit(0)
+        return 1000 # Return a large distance for incompatible tags
 
     def is_nomen(tag):
         if tag[0] == 'n' or tag[0] == 'a' or tag[0] == 'v' and (tag[3:6] == 'rpp' or tag[3:6] == 'ppa'):
