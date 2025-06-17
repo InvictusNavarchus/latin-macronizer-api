@@ -99,6 +99,10 @@ class Wordlist:
     # enddef
 
     def loadwords(self, words):  # Expects a set of lowercase words
+        """
+        Loads words from the database or attempts to parse them with Morpheus.
+        If a word cannot be processed, it is treated as unknown but processing continues.
+        """
         unseenwords = set()
         for word in words:
             if word in self.formtotaglemmaaccents:  # Word is already loaded
@@ -108,8 +112,8 @@ class Wordlist:
         if len(unseenwords) > 0:
             self.crunchwords(unseenwords)  # Try to parse unseen words with Morpheus, and add result to the database
             for word in unseenwords:
-                if not self.loadwordfromdb(word):
-                    raise Exception("Could not store %s in the database." % word)
+                # Load the word from database - if it's still not there, it will be treated as unknown
+                self.loadwordfromdb(word)
     # enddef
 
     def loadwordfromdb(self, word):
@@ -139,6 +143,10 @@ class Wordlist:
     # enddef
 
     def crunchwords(self, words):
+        """
+        Attempts to parse words with Morpheus. If Morpheus is not available,
+        treats all words as unknown and stores them without morphological information.
+        """
         morphinpfd, morphinpfname = mkstemp()
         os.close(morphinpfd)
         crunchedfd, crunchedfname = mkstemp()
@@ -151,7 +159,15 @@ class Wordlist:
                                (MORPHEUS_DIR, MORPHEUS_DIR, morphinpfname, crunchedfname)
         exitcode = os.system(morpheus_command)
         if exitcode != 0:
-            raise Exception("Failed to execute: %s" % morpheus_command)
+            # Morpheus execution failed - treat all words as unknown
+            os.remove(morphinpfname)
+            os.remove(crunchedfname)
+            # Add all words as unknown to the database
+            for word in words:
+                word_lower = word.strip().lower()
+                self.dbcursor.execute("INSERT OR IGNORE INTO morpheus (wordform) VALUES (?)", (word_lower,))
+            self.dbconn.commit()
+            return
         os.remove(morphinpfname)
         with open(crunchedfname, 'r', encoding='utf-8') as crunchedfile:
             morpheus = crunchedfile.read()
