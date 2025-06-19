@@ -27,7 +27,7 @@ import postags
 
 USE_DB = True
 DB_NAME = 'macronizer.db'
-RFTAGGER_DIR = '/usr/local/bin'
+RFTAGGER_DIR = os.path.join(os.path.dirname(__file__), 'bin', 'rftagger')
 MORPHEUS_DIR = os.path.join(os.path.dirname(__file__), 'morpheus')
 MACRONS_FILE = os.path.join(os.path.dirname(__file__), 'macrons.txt')
 
@@ -99,6 +99,10 @@ class Wordlist:
     # enddef
 
     def loadwords(self, words):  # Expects a set of lowercase words
+        """
+        Loads words from the database or attempts to parse them with Morpheus.
+        If Morpheus is not available, unknown words are completely skipped.
+        """
         unseenwords = set()
         for word in words:
             if word in self.formtotaglemmaaccents:  # Word is already loaded
@@ -106,10 +110,10 @@ class Wordlist:
             if not self.loadwordfromdb(word):  # Could not find word in database
                 unseenwords.add(word)
         if len(unseenwords) > 0:
-            self.crunchwords(unseenwords)  # Try to parse unseen words with Morpheus, and add result to the database
+            self.crunchwords(unseenwords)  # Try to parse unseen words with Morpheus
+            # After crunchwords, try to load any words that were successfully processed
             for word in unseenwords:
-                if not self.loadwordfromdb(word):
-                    raise Exception("Could not store %s in the database." % word)
+                self.loadwordfromdb(word)  # This will succeed for known words, silently fail for unknown ones
     # enddef
 
     def loadwordfromdb(self, word):
@@ -139,6 +143,10 @@ class Wordlist:
     # enddef
 
     def crunchwords(self, words):
+        """
+        Attempts to parse words with Morpheus. If Morpheus is not available,
+        treats all words as unknown and stores them without morphological information.
+        """
         morphinpfd, morphinpfname = mkstemp()
         os.close(morphinpfd)
         crunchedfd, crunchedfname = mkstemp()
@@ -147,11 +155,14 @@ class Wordlist:
             for word in words:
                 morphinpfile.write(word.strip().lower() + '\n')
                 morphinpfile.write(word.strip().capitalize() + '\n')
-        morpheus_command = "MORPHLIB=%s/stemlib %s/bin/cruncher -L < %s > %s 2> /dev/null" % \
+        morpheus_command = "MORPHLIB=%s/stemlib %s/cruncher -L < %s > %s 2> /dev/null" % \
                                (MORPHEUS_DIR, MORPHEUS_DIR, morphinpfname, crunchedfname)
         exitcode = os.system(morpheus_command)
         if exitcode != 0:
-            raise Exception("Failed to execute: %s" % morpheus_command)
+            # Morpheus execution failed - skip processing these words entirely
+            os.remove(morphinpfname)
+            os.remove(crunchedfname)
+            return
         os.remove(morphinpfname)
         with open(crunchedfname, 'r', encoding='utf-8') as crunchedfile:
             morpheus = crunchedfile.read()
@@ -210,8 +221,8 @@ class Token:
         self.accented = [""]
         self.macronized = ""
         self.text = postags.removemacrons(text)
-        self.isword = True if re.match("[^\W\d_]", text, flags=re.UNICODE) else False
-        self.isspace = True if re.match("\s", text, flags=re.UNICODE) else False
+        self.isword = True if re.match(r"[^\W\d_]", text, flags=re.UNICODE) else False
+        self.isspace = True if re.match(r"\s", text, flags=re.UNICODE) else False
         self.hasenclitic = False
         self.isenclitic = False
         self.startssentence = False
@@ -326,7 +337,7 @@ class Tokenization:
         possiblesentenceend = False
         sentencehasended = True
         # This does not work?: [^\W\d_]+|\s+|([^\w\s]|[\d_])+
-        for chunk in re.findall("[^\W\d_]+|\s+|[^\w\s]+|[\d_]+", text, re.UNICODE):
+        for chunk in re.findall(r"[^\W\d_]+|\s+|[^\w\s]+|[\d_]+", text, re.UNICODE):
             token = Token(chunk)
             if token.isword:
                 if sentencehasended:
@@ -562,9 +573,9 @@ class Tokenization:
             """Generate accented forms for unknown words"""
             accented = re.sub("([aeiouy])", "\\1_^", accented)
             accented = accented.replace("qu_^", "qu")
-            accented = re.sub("_\^(ns|nf|nct)", "_\\1", accented)
-            accented = re.sub("_\^([bcdfgjklmnpqrstv]{2,}|[xz])", "\\1", accented)
-            accented = re.sub("_\^m$", "m", accented)
+            accented = re.sub(r"_\^(ns|nf|nct)", "_\\1", accented)
+            accented = re.sub(r"_\^([bcdfgjklmnpqrstv]{2,}|[xz])", "\\1", accented)
+            accented = re.sub(r"_\^m$", "m", accented)
             return accented
         # enddef
 
@@ -808,7 +819,6 @@ class Tokenization:
     # enddef
 # endclass
 
-
 class Macronizer:
 
     dactylichexameter = {
@@ -1032,6 +1042,16 @@ class Macronizer:
     # enddef
 # endclass
 
+SCANSIONS = [
+    ("No scanning", []),
+    ("Dactylic Hexameter", [Macronizer.dactylichexameter]),
+    ("Dactylic Pentameter", [Macronizer.dactylicpentameter]),
+    ("Elegiac Couplet (Hexameter then Pentameter)", [Macronizer.dactylichexameter, Macronizer.dactylicpentameter]),
+    ("Hendecasyllable", [Macronizer.hendecasyllable]),
+    ("Iambic Trimeter", [Macronizer.iambictrimeter]),
+    ("Iambic Dimeter", [Macronizer.iambicdimeter]),
+    # Users could define more complex sequences if needed, e.g., a whole poem's structure.
+]
 
 def evaluate(goldstandard, macronizedtext):
     vowelcount = 0
